@@ -1,25 +1,32 @@
-from fastapi import FastAPI
+import uuid
+
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 app = FastAPI()
 
+items: dict[str, "Item"] = {}
 
-class Item(BaseModel):
+
+class ItemCreate(BaseModel):
     name: str
     price: float
-    is_offer: bool | None = None
 
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+class Item(ItemCreate):
+    id: str
+
+
+@app.post("/items", status_code=201)
+def create_item(item: ItemCreate) -> Item:
+    new_item = Item(id=str(uuid.uuid4()), **item.model_dump())
+    items[new_item.id] = new_item
+    return new_item
 
 
 @app.get("/items/{item_id}")
-def read_item(item_id: int, q: str | None = None):
-    return {"item_id": item_id, "q": q}     
-
-
-@app.put("/items/{item_id}")
-def update_item(item_id: int, item: Item):
-    return {"item_name": item.name, "item_id": item_id} 
+def get_item(item_id: str) -> Item:
+    item = items.get(item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return item
